@@ -4,6 +4,13 @@ import SwiftUI
 struct PlainPadApp: App {
     @StateObject private var appearanceSettings = AppearanceSettings()
     
+    init() {
+            // Force documents to open in tabs instead of new windows
+            NSWindow.allowsAutomaticWindowTabbing = true
+            UserDefaults.standard.set("always", forKey: "AppleWindowTabbingMode")
+        }
+
+    
     var body: some Scene {
         DocumentGroup(newDocument: PlainTextDocument()) { file in
             ContentView(document: file.$document)
