@@ -52,6 +52,9 @@ struct PlainTextEditor: NSViewRepresentable {
         // Apply initial appearance
         applyAppearance(to: textView, scrollView: scrollView)
         
+        // Store current settings for comparison
+        context.coordinator.lastAppearanceState = appearanceState
+        
         // Check for Roboto font on first launch
         FontManager.showInstallPromptIfNeeded()
         
@@ -61,15 +64,26 @@ struct PlainTextEditor: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? PlainTextView else { return }
         
-        // Update text if changed externally (e.g., file open)
-        if textView.string != text {
+        // Only update text if it changed externally (e.g., file open)
+        // and not from our own typing
+        if !context.coordinator.isUpdating && textView.string != text {
             let selectedRanges = textView.selectedRanges
             textView.string = text
             textView.selectedRanges = selectedRanges
         }
         
-        // Apply current appearance settings
-        applyAppearance(to: textView, scrollView: scrollView)
+        // Only apply appearance if settings actually changed
+        let currentState = appearanceState
+        if currentState != context.coordinator.lastAppearanceState {
+            applyAppearance(to: textView, scrollView: scrollView)
+            context.coordinator.lastAppearanceState = currentState
+        }
+    }
+    
+    // MARK: - Appearance State Tracking
+    
+    private var appearanceState: String {
+        "\(appearanceSettings.fontSize)-\(appearanceSettings.zoomLevel)-\(appearanceSettings.lineHeightMultiplier)-\(appearanceSettings.characterSpacing)-\(appearanceSettings.edgePadding)-\(appearanceSettings.theme.rawValue)"
     }
     
     // MARK: - Appearance Application
@@ -135,6 +149,8 @@ struct PlainTextEditor: NSViewRepresentable {
     
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: PlainTextEditor
+        var isUpdating = false
+        var lastAppearanceState: String = ""
         
         init(_ parent: PlainTextEditor) {
             self.parent = parent
@@ -143,10 +159,10 @@ struct PlainTextEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             
-            // Update binding on main thread
-            DispatchQueue.main.async {
-                self.parent.text = textView.string
-            }
+            // Prevent recursive updates
+            isUpdating = true
+            parent.text = textView.string
+            isUpdating = false
         }
     }
 }
