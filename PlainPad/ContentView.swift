@@ -3,6 +3,7 @@ import SwiftUI
 /// Main content view hosting the plain text editor
 struct ContentView: View {
     @Binding var document: PlainTextDocument
+    let documentURL: URL?
     @EnvironmentObject var appearanceSettings: AppearanceSettings
     
     var body: some View {
@@ -14,7 +15,7 @@ struct ContentView: View {
             Divider()
             
             // Editor
-            PlainTextEditor(text: $document.text)
+            PlainTextEditor(text: $document.text, documentURL: documentURL)
         }
         .frame(minWidth: 400, minHeight: 300)
         .background(appearanceSettings.theme.backgroundColorSwiftUI)
@@ -43,7 +44,12 @@ struct ContentView: View {
     }
 }
 
-#Preview {
-    ContentView(document: .constant(PlainTextDocument(text: "Hello, PlainPad!")))
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView(
+            document: .constant(PlainTextDocument(text: "Hello, PlainPad!")),
+            documentURL: nil
+        )
         .environmentObject(AppearanceSettings())
+    }
 }
