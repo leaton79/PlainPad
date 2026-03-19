@@ -4,6 +4,143 @@ import AppKit
 /// - Paste always strips formatting
 /// - Tab key inserts literal tab character
 class PlainTextView: NSTextView {
+    private var notificationObservers: [NSObjectProtocol] = []
+    private var observedClipView: NSClipView?
+    private var observedWindow: NSWindow?
+    private var lastKnownVisibleOrigin: NSPoint = .zero
+    private var pendingViewportRestoreOrigin: NSPoint?
+    private var isPreservingViewport = false
+    
+    // MARK: - Focus Handling
+    
+    override func becomeFirstResponder() -> Bool {
+        let didBecomeFirstResponder = super.becomeFirstResponder()
+        guard didBecomeFirstResponder else { return false }
+        keepSelectionVisible()
+        
+        return true
+    }
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        removeObservers()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        registerObserversIfNeeded()
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        registerObserversIfNeeded()
+    }
+
+    deinit {
+        removeObservers()
+    }
+
+    private func keepSelectionVisible() {
+        let currentSelection = selectedRange()
+        guard currentSelection.location != NSNotFound else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.scrollRangeToVisible(currentSelection)
+            self.updateLastKnownVisibleOrigin()
+        }
+    }
+
+    private func registerObserversIfNeeded() {
+        guard let scrollView = enclosingScrollView else { return }
+        guard let window else { return }
+        guard observedClipView !== scrollView.contentView || observedWindow !== window else { return }
+
+        removeObservers()
+
+        observedClipView = scrollView.contentView
+        observedWindow = window
+        lastKnownVisibleOrigin = scrollView.contentView.bounds.origin
+
+        let center = NotificationCenter.default
+        notificationObservers.append(
+            center.addObserver(
+                forName: Notification.Name("NSWindowWillResignKeyNotification"),
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.prepareForViewportPreservation()
+            }
+        )
+        notificationObservers.append(
+            center.addObserver(
+                forName: NSView.boundsDidChangeNotification,
+                object: scrollView.contentView,
+                queue: .main
+            ) { [weak self] _ in
+                self?.updateLastKnownVisibleOrigin()
+            }
+        )
+        notificationObservers.append(
+            center.addObserver(
+                forName: NSWindow.didResignKeyNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.restoreLastKnownViewport()
+            }
+        )
+        notificationObservers.append(
+            center.addObserver(
+                forName: NSWindow.didBecomeKeyNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.restoreLastKnownViewport()
+            }
+        )
+    }
+
+    private func prepareForViewportPreservation() {
+        guard let scrollView = enclosingScrollView else { return }
+        pendingViewportRestoreOrigin = scrollView.contentView.bounds.origin
+        isPreservingViewport = true
+    }
+
+    private func updateLastKnownVisibleOrigin() {
+        guard let scrollView = enclosingScrollView else { return }
+        guard !isPreservingViewport else { return }
+        lastKnownVisibleOrigin = scrollView.contentView.bounds.origin
+    }
+
+    private func restoreLastKnownViewport() {
+        guard let scrollView = enclosingScrollView else { return }
+        let targetOrigin = pendingViewportRestoreOrigin ?? lastKnownVisibleOrigin
+
+        let restoreDelays: [TimeInterval] = [0, 0.05, 0.15]
+        for delay in restoreDelays {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak scrollView] in
+                guard let self, let scrollView else { return }
+                scrollView.contentView.scroll(to: targetOrigin)
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+                self.lastKnownVisibleOrigin = targetOrigin
+
+                if self.window?.isKeyWindow == true {
+                    self.pendingViewportRestoreOrigin = nil
+                    self.isPreservingViewport = false
+                }
+            }
+        }
+    }
+
+    private func removeObservers() {
+        for observer in notificationObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        notificationObservers.removeAll()
+        observedClipView = nil
+        observedWindow = nil
+    }
     
     // MARK: - Paste Behavior
     
