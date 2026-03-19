@@ -13,7 +13,7 @@ struct PlainPadApp: App {
     
     var body: some Scene {
         DocumentGroup(newDocument: PlainTextDocument()) { file in
-            ContentView(document: file.$document)
+            ContentView(document: file.$document, documentURL: file.fileURL)
                 .environmentObject(appearanceSettings)
         }
         .commands {
@@ -23,6 +23,20 @@ struct PlainPadApp: App {
                     NSApp.sendAction(#selector(NSTextView.pasteAsPlainText(_:)), to: nil, from: nil)
                 }
                 .keyboardShortcut("V", modifiers: [.command, .option, .shift])
+            }
+
+            CommandGroup(after: .textEditing) {
+                Divider()
+
+                Button("Find...") {
+                    performTextFinderAction(.showFindInterface)
+                }
+                .keyboardShortcut("f", modifiers: .command)
+
+                Button("Find and Replace...") {
+                    performTextFinderAction(.showReplaceInterface)
+                }
+                .keyboardShortcut("f", modifiers: [.command, .option])
             }
             
             // MARK: - View Menu (Appearance Controls)
@@ -95,5 +109,11 @@ struct PlainPadApp: App {
                 }
             }
         }
+    }
+
+    private func performTextFinderAction(_ action: NSTextFinder.Action) {
+        let menuItem = NSMenuItem()
+        menuItem.tag = action.rawValue
+        NSApp.sendAction(#selector(NSResponder.performTextFinderAction(_:)), to: nil, from: menuItem)
     }
 }

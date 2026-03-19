@@ -5,6 +5,7 @@ import AppKit
 /// Bridges AppKit text editing into SwiftUI with full appearance control
 struct PlainTextEditor: NSViewRepresentable {
     @Binding var text: String
+    let documentURL: URL?
     @EnvironmentObject var appearanceSettings: AppearanceSettings
     
     func makeNSView(context: Context) -> NSScrollView {
@@ -14,6 +15,7 @@ struct PlainTextEditor: NSViewRepresentable {
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
+        scrollView.contentView.postsBoundsChangedNotifications = true
         
         // Create our custom text view
         let textView = PlainTextView()
@@ -42,6 +44,7 @@ struct PlainTextEditor: NSViewRepresentable {
         
         // Set delegate for text changes
         textView.delegate = context.coordinator
+        context.coordinator.attach(to: textView, scrollView: scrollView)
         
         // Set initial text
         textView.string = text
@@ -54,6 +57,7 @@ struct PlainTextEditor: NSViewRepresentable {
         
         // Store current settings for comparison
         context.coordinator.lastAppearanceState = appearanceState
+        context.coordinator.restorePersistedStateIfNeeded(on: textView, scrollView: scrollView)
         
         // Check for Roboto font on first launch
         FontManager.showInstallPromptIfNeeded()
@@ -63,19 +67,22 @@ struct PlainTextEditor: NSViewRepresentable {
     
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? PlainTextView else { return }
+        context.coordinator.parent = self
         
         // Only update text if it changed externally (e.g., file open)
         // and not from our own typing
         if !context.coordinator.isUpdating && textView.string != text {
-            let selectedRanges = textView.selectedRanges
+            let editorState = context.coordinator.captureEditorState(from: textView, scrollView: scrollView)
             textView.string = text
-            textView.selectedRanges = selectedRanges
+            context.coordinator.restore(editorState, on: textView, scrollView: scrollView)
         }
         
         // Only apply appearance if settings actually changed
         let currentState = appearanceState
         if currentState != context.coordinator.lastAppearanceState {
+            let editorState = context.coordinator.captureEditorState(from: textView, scrollView: scrollView)
             applyAppearance(to: textView, scrollView: scrollView)
+            context.coordinator.restore(editorState, on: textView, scrollView: scrollView)
             context.coordinator.lastAppearanceState = currentState
         }
     }
@@ -148,12 +155,115 @@ struct PlainTextEditor: NSViewRepresentable {
     }
     
     class Coordinator: NSObject, NSTextViewDelegate {
+        struct EditorState: Codable {
+            var selectedLocation: Int
+            var selectedLength: Int
+            var scrollX: Double
+            var scrollY: Double
+        }
+
         var parent: PlainTextEditor
         var isUpdating = false
+        var isRestoringState = false
         var lastAppearanceState: String = ""
+        private var observers: [NSObjectProtocol] = []
+        private var pendingPersistedState: EditorState?
         
         init(_ parent: PlainTextEditor) {
             self.parent = parent
+            self.pendingPersistedState = Self.loadState(for: parent.documentURL)
+        }
+
+        deinit {
+            for observer in observers {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+
+        func attach(to textView: PlainTextView, scrollView: NSScrollView) {
+            let center = NotificationCenter.default
+
+            observers.append(
+                center.addObserver(
+                    forName: NSTextView.didChangeSelectionNotification,
+                    object: textView,
+                    queue: .main
+                ) { [weak self, weak textView, weak scrollView] _ in
+                    guard
+                        let self,
+                        let textView,
+                        let scrollView
+                    else { return }
+                    self.persistCurrentState(from: textView, scrollView: scrollView)
+                }
+            )
+
+            observers.append(
+                center.addObserver(
+                    forName: NSView.boundsDidChangeNotification,
+                    object: scrollView.contentView,
+                    queue: .main
+                ) { [weak self, weak textView, weak scrollView] _ in
+                    guard
+                        let self,
+                        let textView,
+                        let scrollView
+                    else { return }
+                    self.persistCurrentState(from: textView, scrollView: scrollView)
+                }
+            )
+        }
+
+        func restorePersistedStateIfNeeded(on textView: PlainTextView, scrollView: NSScrollView) {
+            guard let state = pendingPersistedState else { return }
+            pendingPersistedState = nil
+            restore(state, on: textView, scrollView: scrollView)
+        }
+
+        func captureEditorState(from textView: NSTextView, scrollView: NSScrollView) -> EditorState {
+            let selectedRange = textView.selectedRange()
+            let origin = scrollView.contentView.bounds.origin
+
+            return EditorState(
+                selectedLocation: selectedRange.location,
+                selectedLength: selectedRange.length,
+                scrollX: origin.x,
+                scrollY: origin.y
+            )
+        }
+
+        func restore(_ state: EditorState, on textView: NSTextView, scrollView: NSScrollView) {
+            let clampedRange = clampedSelectedRange(for: state, text: textView.string)
+            let clampedPoint = NSPoint(
+                x: max(0, CGFloat(state.scrollX)),
+                y: max(0, CGFloat(state.scrollY))
+            )
+
+            isRestoringState = true
+            textView.setSelectedRange(clampedRange)
+            persistCurrentState(from: textView, scrollView: scrollView)
+
+            DispatchQueue.main.async { [weak self, weak textView, weak scrollView] in
+                guard
+                    let self,
+                    let textView,
+                    let scrollView
+                else { return }
+
+                textView.layoutManager?.ensureLayout(for: textView.textContainer!)
+                scrollView.contentView.scroll(to: clampedPoint)
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+                textView.setSelectedRange(clampedRange)
+                self.isRestoringState = false
+                self.persistCurrentState(from: textView, scrollView: scrollView)
+            }
+        }
+
+        func persistCurrentState(from textView: NSTextView, scrollView: NSScrollView) {
+            guard !isRestoringState else { return }
+            let state = captureEditorState(from: textView, scrollView: scrollView)
+            pendingPersistedState = state
+            Self.saveState(state, for: parent.documentURL)
         }
         
         func textDidChange(_ notification: Notification) {
@@ -163,6 +273,33 @@ struct PlainTextEditor: NSViewRepresentable {
             isUpdating = true
             parent.text = textView.string
             isUpdating = false
+            if let scrollView = textView.enclosingScrollView {
+                persistCurrentState(from: textView, scrollView: scrollView)
+            }
+        }
+
+        private func clampedSelectedRange(for state: EditorState, text: String) -> NSRange {
+            let upperBound = text.utf16.count
+            let location = min(max(0, state.selectedLocation), upperBound)
+            let length = min(max(0, state.selectedLength), upperBound - location)
+            return NSRange(location: location, length: length)
+        }
+
+        private static func saveState(_ state: EditorState, for documentURL: URL?) {
+            guard let key = storageKey(for: documentURL) else { return }
+            guard let data = try? JSONEncoder().encode(state) else { return }
+            UserDefaults.standard.set(data, forKey: key)
+        }
+
+        private static func loadState(for documentURL: URL?) -> EditorState? {
+            guard let key = storageKey(for: documentURL) else { return nil }
+            guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+            return try? JSONDecoder().decode(EditorState.self, from: data)
+        }
+
+        private static func storageKey(for documentURL: URL?) -> String? {
+            guard let documentURL else { return nil }
+            return "PlainPad.EditorState.\(documentURL.standardizedFileURL.path)"
         }
     }
 }
