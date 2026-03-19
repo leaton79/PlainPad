@@ -313,12 +313,16 @@ struct PlainTextEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             
-            // Prevent recursive updates
+            // Keep SwiftUI from treating in-flight typing as an external reload,
+            // which can restore an older scroll position and hide the caret.
             isUpdating = true
             parent.text = textView.string
-            isUpdating = false
             if let scrollView = textView.enclosingScrollView {
                 persistCurrentState(from: textView, scrollView: scrollView)
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                self?.isUpdating = false
             }
         }
 
