@@ -111,6 +111,7 @@ struct PlainTextEditor: NSViewRepresentable {
         let charSpacing = appearanceSettings.characterSpacing
         let padding = CGFloat(appearanceSettings.edgePadding)
         let zoom = CGFloat(appearanceSettings.zoomLevel)
+        let effectiveFontSize = fontSize * zoom
         
         // Background color
         textView.backgroundColor = theme.backgroundColor
@@ -133,11 +134,11 @@ struct PlainTextEditor: NSViewRepresentable {
         paragraphStyle.lineHeightMultiple = CGFloat(lineHeight)
         
         // Build typing attributes
-        let font = FontManager.font(ofSize: fontSize)
+        let font = FontManager.font(ofSize: effectiveFontSize)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: theme.textColor,
-            .kern: CGFloat(charSpacing),
+            .kern: CGFloat(charSpacing) * zoom,
             .paragraphStyle: paragraphStyle
         ]
         
@@ -150,11 +151,10 @@ struct PlainTextEditor: NSViewRepresentable {
             textView.textStorage?.setAttributes(attributes, range: fullRange)
         }
         
-        // Apply zoom via scroll view magnification
-        scrollView.magnification = zoom
-        scrollView.allowsMagnification = true
-        scrollView.minMagnification = 0.5
-        scrollView.maxMagnification = 3.0
+        // Keep zoom in the text metrics instead of scroll-view magnification,
+        // which breaks text wrapping during live window resizing.
+        scrollView.magnification = 1.0
+        scrollView.allowsMagnification = false
     }
     
     // MARK: - Coordinator
