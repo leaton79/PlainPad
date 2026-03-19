@@ -16,6 +16,7 @@ struct PlainTextEditor: NSViewRepresentable {
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
         scrollView.contentView.postsBoundsChangedNotifications = true
+        scrollView.postsFrameChangedNotifications = true
         
         // Create our custom text view
         let textView = PlainTextView()
@@ -34,6 +35,12 @@ struct PlainTextEditor: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
         textView.autoresizingMask = [.width]
+        textView.minSize = NSSize(width: 0, height: scrollView.contentSize.height)
+        textView.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        textView.frame = NSRect(origin: .zero, size: scrollView.contentSize)
         
         // Text container setup for wrapping
         textView.textContainer?.containerSize = NSSize(
@@ -51,6 +58,7 @@ struct PlainTextEditor: NSViewRepresentable {
         
         // Configure scroll view
         scrollView.documentView = textView
+        context.coordinator.updateTextLayout(for: textView, in: scrollView)
         
         // Apply initial appearance
         applyAppearance(to: textView, scrollView: scrollView)
@@ -68,6 +76,7 @@ struct PlainTextEditor: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? PlainTextView else { return }
         context.coordinator.parent = self
+        context.coordinator.updateTextLayout(for: textView, in: scrollView)
         
         // Only update text if it changed externally (e.g., file open)
         // and not from our own typing
@@ -212,6 +221,41 @@ struct PlainTextEditor: NSViewRepresentable {
                     self.persistCurrentState(from: textView, scrollView: scrollView)
                 }
             )
+
+            observers.append(
+                center.addObserver(
+                    forName: NSView.frameDidChangeNotification,
+                    object: scrollView,
+                    queue: .main
+                ) { [weak self, weak textView, weak scrollView] _ in
+                    guard
+                        let self,
+                        let textView,
+                        let scrollView
+                    else { return }
+                    self.updateTextLayout(for: textView, in: scrollView)
+                }
+            )
+        }
+
+        func updateTextLayout(for textView: NSTextView, in scrollView: NSScrollView) {
+            let contentSize = scrollView.contentSize
+            let targetWidth = contentSize.width
+
+            if textView.frame.width != targetWidth {
+                textView.frame.size.width = targetWidth
+            }
+
+            if textView.frame.height < contentSize.height {
+                textView.frame.size.height = contentSize.height
+            }
+
+            textView.textContainer?.containerSize = NSSize(
+                width: targetWidth,
+                height: CGFloat.greatestFiniteMagnitude
+            )
+            textView.textContainer?.widthTracksTextView = true
+            textView.layoutManager?.ensureLayout(for: textView.textContainer!)
         }
 
         func restorePersistedStateIfNeeded(on textView: PlainTextView, scrollView: NSScrollView) {
