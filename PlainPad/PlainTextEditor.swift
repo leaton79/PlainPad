@@ -64,8 +64,7 @@ struct PlainTextEditor: NSViewRepresentable {
         applyAppearance(to: textView, scrollView: scrollView)
         
         // Store current settings for comparison
-        context.coordinator.lastAppearanceState = appearanceState
-        context.coordinator.restorePersistedStateIfNeeded(on: textView, scrollView: scrollView)
+        context.coordinator.lastAppearanceSnapshot = appearanceSettings.snapshot
         
         // Check for Roboto font on first launch
         FontManager.showInstallPromptIfNeeded()
@@ -94,52 +93,35 @@ struct PlainTextEditor: NSViewRepresentable {
         }
         
         // Only apply appearance if settings actually changed
-        let currentState = appearanceState
-        if currentState != context.coordinator.lastAppearanceState {
+        let currentSnapshot = appearanceSettings.snapshot
+        if currentSnapshot != context.coordinator.lastAppearanceSnapshot {
             applyAppearance(to: textView, scrollView: scrollView)
             context.coordinator.keepSelectionVisible(in: textView)
-            context.coordinator.lastAppearanceState = currentState
+            context.coordinator.lastAppearanceSnapshot = currentSnapshot
         }
     }
-    
-    // MARK: - Appearance State Tracking
-    
-    private var appearanceState: String {
-        "\(appearanceSettings.fontSize)-\(appearanceSettings.zoomLevel)-\(appearanceSettings.lineHeightMultiplier)-\(appearanceSettings.characterSpacing)-\(appearanceSettings.edgePadding)-\(appearanceSettings.theme.rawValue)"
-    }
-    
-    // MARK: - Appearance Application
-    
+
     private func applyAppearance(to textView: PlainTextView, scrollView: NSScrollView) {
-        let theme = appearanceSettings.theme
-        let fontSize = CGFloat(appearanceSettings.fontSize)
-        let lineHeight = appearanceSettings.lineHeightMultiplier
-        let charSpacing = appearanceSettings.characterSpacing
-        let padding = CGFloat(appearanceSettings.edgePadding)
-        let zoom = CGFloat(appearanceSettings.zoomLevel)
+        let snapshot = appearanceSettings.snapshot
+        let theme = snapshot.theme
+        let fontSize = CGFloat(snapshot.fontSize)
+        let lineHeight = snapshot.lineHeightMultiplier
+        let charSpacing = snapshot.characterSpacing
+        let padding = CGFloat(snapshot.edgePadding)
+        let zoom = CGFloat(snapshot.zoomLevel)
         let effectiveFontSize = fontSize * zoom
-        
-        // Background color
+
         textView.backgroundColor = theme.backgroundColor
         scrollView.backgroundColor = theme.backgroundColor
-        
-        // Cursor color
         textView.insertionPointColor = theme.cursorColor
-        
-        // Selection color
         textView.selectedTextAttributes = [
             .backgroundColor: theme.selectionColor,
             .foregroundColor: theme.textColor
         ]
-        
-        // Edge padding (text container inset)
         textView.textContainerInset = NSSize(width: padding, height: padding)
-        
-        // Build paragraph style for line spacing
+
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineHeightMultiple = CGFloat(lineHeight)
-        
-        // Build typing attributes
         let font = FontManager.font(ofSize: effectiveFontSize)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
@@ -147,24 +129,19 @@ struct PlainTextEditor: NSViewRepresentable {
             .kern: CGFloat(charSpacing) * zoom,
             .paragraphStyle: paragraphStyle
         ]
-        
-        // Apply to typing attributes (new text)
         textView.typingAttributes = attributes
-        
-        // Apply to existing text
+
+        // Appearance changes intentionally re-style the entire text storage so
+        // existing content matches newly typed content.
         if textView.string.count > 0 {
             let fullRange = NSRange(location: 0, length: textView.string.utf16.count)
             textView.textStorage?.setAttributes(attributes, range: fullRange)
         }
-        
-        // Keep zoom in the text metrics instead of scroll-view magnification,
-        // which breaks text wrapping during live window resizing.
+
         scrollView.magnification = 1.0
         scrollView.allowsMagnification = false
     }
-    
-    // MARK: - Coordinator
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
@@ -172,7 +149,7 @@ struct PlainTextEditor: NSViewRepresentable {
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: PlainTextEditor
         var isUpdating = false
-        var lastAppearanceState: String = ""
+        var lastAppearanceSnapshot: AppearanceSettings.Snapshot?
         private var observers: [NSObjectProtocol] = []
         
         init(_ parent: PlainTextEditor) {
@@ -222,10 +199,10 @@ struct PlainTextEditor: NSViewRepresentable {
                 height: CGFloat.greatestFiniteMagnitude
             )
             textView.textContainer?.widthTracksTextView = true
-            textView.layoutManager?.ensureLayout(for: textView.textContainer!)
+            if let textContainer = textView.textContainer {
+                textView.layoutManager?.ensureLayout(for: textContainer)
+            }
         }
-
-        func restorePersistedStateIfNeeded(on textView: PlainTextView, scrollView: NSScrollView) {}
 
         func keepSelectionVisible(in textView: NSTextView) {
             let selectedRange = textView.selectedRange()

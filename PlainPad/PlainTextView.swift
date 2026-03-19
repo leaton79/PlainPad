@@ -4,15 +4,8 @@ import AppKit
 /// - Paste always strips formatting
 /// - Tab key inserts literal tab character
 class PlainTextView: NSTextView {
-    private var notificationObservers: [NSObjectProtocol] = []
-    private var observedClipView: NSClipView?
-    private var observedWindow: NSWindow?
-    private var lastKnownVisibleOrigin: NSPoint = .zero
-    private var pendingViewportRestoreOrigin: NSPoint?
-    private var isPreservingViewport = false
-    
-    // MARK: - Focus Handling
-    
+    private let viewportPreserver = ViewportPreserver()
+
     override func becomeFirstResponder() -> Bool {
         let didBecomeFirstResponder = super.becomeFirstResponder()
         guard didBecomeFirstResponder else { return false }
@@ -23,21 +16,21 @@ class PlainTextView: NSTextView {
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         super.viewWillMove(toWindow: newWindow)
-        removeObservers()
+        viewportPreserver.disconnect()
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        registerObserversIfNeeded()
+        viewportPreserver.connect(to: self)
     }
 
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
-        registerObserversIfNeeded()
+        viewportPreserver.connect(to: self)
     }
 
     deinit {
-        removeObservers()
+        viewportPreserver.disconnect()
     }
 
     private func keepSelectionVisible() {
@@ -51,138 +44,40 @@ class PlainTextView: NSTextView {
         }
     }
 
-    private func registerObserversIfNeeded() {
-        guard let scrollView = enclosingScrollView else { return }
-        guard let window else { return }
-        guard observedClipView !== scrollView.contentView || observedWindow !== window else { return }
-
-        removeObservers()
-
-        observedClipView = scrollView.contentView
-        observedWindow = window
-        lastKnownVisibleOrigin = scrollView.contentView.bounds.origin
-
-        let center = NotificationCenter.default
-        notificationObservers.append(
-            center.addObserver(
-                forName: Notification.Name("NSWindowWillResignKeyNotification"),
-                object: window,
-                queue: .main
-            ) { [weak self] _ in
-                self?.prepareForViewportPreservation()
-            }
-        )
-        notificationObservers.append(
-            center.addObserver(
-                forName: NSView.boundsDidChangeNotification,
-                object: scrollView.contentView,
-                queue: .main
-            ) { [weak self] _ in
-                self?.updateLastKnownVisibleOrigin()
-            }
-        )
-        notificationObservers.append(
-            center.addObserver(
-                forName: NSWindow.didResignKeyNotification,
-                object: window,
-                queue: .main
-            ) { [weak self] _ in
-                self?.restoreLastKnownViewport()
-            }
-        )
-        notificationObservers.append(
-            center.addObserver(
-                forName: NSWindow.didBecomeKeyNotification,
-                object: window,
-                queue: .main
-            ) { [weak self] _ in
-                self?.restoreLastKnownViewport()
-            }
-        )
-    }
-
     private func prepareForViewportPreservation() {
-        guard let scrollView = enclosingScrollView else { return }
-        pendingViewportRestoreOrigin = scrollView.contentView.bounds.origin
-        isPreservingViewport = true
+        viewportPreserver.prepareForPreservation()
     }
 
     private func updateLastKnownVisibleOrigin() {
-        guard let scrollView = enclosingScrollView else { return }
-        guard !isPreservingViewport else { return }
-        lastKnownVisibleOrigin = scrollView.contentView.bounds.origin
+        viewportPreserver.captureCurrentOrigin()
     }
 
     private func restoreLastKnownViewport() {
-        guard let scrollView = enclosingScrollView else { return }
-        let targetOrigin = pendingViewportRestoreOrigin ?? lastKnownVisibleOrigin
-
-        let restoreDelays: [TimeInterval] = [0, 0.05, 0.15]
-        for delay in restoreDelays {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak scrollView] in
-                guard let self, let scrollView else { return }
-                scrollView.contentView.scroll(to: targetOrigin)
-                scrollView.reflectScrolledClipView(scrollView.contentView)
-                self.lastKnownVisibleOrigin = targetOrigin
-
-                if self.window?.isKeyWindow == true {
-                    self.pendingViewportRestoreOrigin = nil
-                    self.isPreservingViewport = false
-                }
-            }
-        }
+        viewportPreserver.restoreIfNeeded()
     }
 
-    private func removeObservers() {
-        for observer in notificationObservers {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        notificationObservers.removeAll()
-        observedClipView = nil
-        observedWindow = nil
-    }
-    
-    // MARK: - Paste Behavior
-    
-    /// Override paste to always strip formatting (paste as plain text)
     override func paste(_ sender: Any?) {
         pasteAsPlainText(sender)
     }
-    
-    /// Explicit paste as plain text - reads string from pasteboard, ignoring RTF/HTML
+
     override func pasteAsPlainText(_ sender: Any?) {
         let pasteboard = NSPasteboard.general
-        
-        // Try to get plain string from pasteboard
         guard let string = pasteboard.string(forType: .string) else {
-            // Nothing to paste, or no string representation
             NSSound.beep()
             return
         }
-        
-        // Insert the plain text at current selection
+
         insertText(string, replacementRange: selectedRange())
     }
-    
-    // MARK: - Tab Key Behavior
-    
-    /// Override insertTab to insert a literal tab character instead of changing focus
+
     override func insertTab(_ sender: Any?) {
         insertText("\t", replacementRange: selectedRange())
     }
-    
-    /// Also handle backtab (Shift+Tab) to insert tab if desired, or do nothing
+
     override func insertBacktab(_ sender: Any?) {
-        // Option 1: Do nothing (standard behavior would move focus backward)
-        // Option 2: Insert tab anyway
-        // We'll do nothing to match typical text editor behavior
     }
-    
-    // MARK: - Key Handling
-    
-    /// Ensure Tab key is handled by us, not the responder chain
+
     override func keyDown(with event: NSEvent) {
-        // Tab key without modifiers should insert tab
         if event.keyCode == 48 && event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty {
             insertTab(nil)
             return
@@ -190,18 +85,13 @@ class PlainTextView: NSTextView {
         
         super.keyDown(with: event)
     }
-    
-    // MARK: - Drag and Drop
-    
-    /// Override to handle dropped text as plain text only
+
     override func readSelection(from pboard: NSPasteboard, type: NSPasteboard.PasteboardType) -> Bool {
-        // Only accept string type to ensure plain text
         if type == .string, let string = pboard.string(forType: .string) {
             insertText(string, replacementRange: selectedRange())
             return true
         }
-        
-        // Try to get string even if type is different (e.g., RTF dropped)
+
         if let string = pboard.string(forType: .string) {
             insertText(string, replacementRange: selectedRange())
             return true
@@ -209,18 +99,122 @@ class PlainTextView: NSTextView {
         
         return false
     }
-    
-    /// Declare what types we accept for drag/drop
+
     override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
-        return [.string]
+        [.string]
     }
-    
-    /// Accept dragged items as plain text only
+
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         let pasteboard = sender.draggingPasteboard
         if pasteboard.availableType(from: [.string]) != nil {
             return .copy
         }
         return []
+    }
+}
+
+private final class ViewportPreserver {
+    private static let windowWillResignKeyNotification = Notification.Name("NSWindowWillResignKeyNotification")
+    private let restoreDelays: [TimeInterval] = [0, 0.05, 0.15]
+    private var observers: [NSObjectProtocol] = []
+    private weak var textView: PlainTextView?
+    private weak var observedClipView: NSClipView?
+    private weak var observedWindow: NSWindow?
+    private var lastKnownVisibleOrigin: NSPoint = .zero
+    private var pendingRestoreOrigin: NSPoint?
+    private var isPreservingViewport = false
+
+    func connect(to textView: PlainTextView) {
+        guard let scrollView = textView.enclosingScrollView else { return }
+        guard let window = textView.window else { return }
+        guard observedClipView !== scrollView.contentView || observedWindow !== window else { return }
+
+        disconnect()
+
+        self.textView = textView
+        observedClipView = scrollView.contentView
+        observedWindow = window
+        lastKnownVisibleOrigin = scrollView.contentView.bounds.origin
+
+        let center = NotificationCenter.default
+        observers.append(
+            center.addObserver(
+                forName: Self.windowWillResignKeyNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.prepareForPreservation()
+            }
+        )
+        observers.append(
+            center.addObserver(
+                forName: NSView.boundsDidChangeNotification,
+                object: scrollView.contentView,
+                queue: .main
+            ) { [weak self] _ in
+                self?.captureCurrentOrigin()
+            }
+        )
+        observers.append(
+            center.addObserver(
+                forName: NSWindow.didResignKeyNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.restoreIfNeeded()
+            }
+        )
+        observers.append(
+            center.addObserver(
+                forName: NSWindow.didBecomeKeyNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.restoreIfNeeded()
+            }
+        )
+    }
+
+    func disconnect() {
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        observers.removeAll()
+        textView = nil
+        observedClipView = nil
+        observedWindow = nil
+        pendingRestoreOrigin = nil
+        isPreservingViewport = false
+    }
+
+    func prepareForPreservation() {
+        guard let scrollView = textView?.enclosingScrollView else { return }
+        pendingRestoreOrigin = scrollView.contentView.bounds.origin
+        isPreservingViewport = true
+    }
+
+    func captureCurrentOrigin() {
+        guard let scrollView = textView?.enclosingScrollView else { return }
+        guard !isPreservingViewport else { return }
+        lastKnownVisibleOrigin = scrollView.contentView.bounds.origin
+    }
+
+    func restoreIfNeeded() {
+        guard let textView, let scrollView = textView.enclosingScrollView else { return }
+        let targetOrigin = pendingRestoreOrigin ?? lastKnownVisibleOrigin
+
+        for delay in restoreDelays {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak textView, weak scrollView] in
+                guard let self, let textView, let scrollView else { return }
+                scrollView.contentView.scroll(to: targetOrigin)
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+                self.lastKnownVisibleOrigin = targetOrigin
+
+                if textView.window?.isKeyWindow == true {
+                    self.pendingRestoreOrigin = nil
+                    self.isPreservingViewport = false
+                }
+            }
+        }
     }
 }

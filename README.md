@@ -44,7 +44,7 @@ PlainPad is designed as a **clean paste buffer**: a place to strip formatting wh
 ## Privacy
 
 - **No telemetry** — PlainPad collects nothing
-- **No network access** — The app never connects to the internet
+- **No background network activity** — PlainPad does not send data anywhere; the only external action is opening the Roboto download page if you choose that prompt
 - **Local only** — Preferences stored in UserDefaults; files stored wherever you choose
 
 ## License

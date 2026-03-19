@@ -6,8 +6,30 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A10000012F3285E3003DA095 /* PlainTextDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000002F3285E3003DA095 /* PlainTextDocumentTests.swift */; };
+		A10000022F3285E3003DA095 /* AppearanceSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000032F3285E3003DA095 /* AppearanceSettingsTests.swift */; };
+		A10000042F3285E3003DA095 /* PlainTextViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000052F3285E3003DA095 /* PlainTextViewTests.swift */; };
+		A10000112F3285E3003DA095 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000102F3285E3003DA095 /* XCTest.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A10000162F3285E3003DA095 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9F1AC56D2F3285E3003DA095 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9F1AC5742F3285E3003DA095;
+			remoteInfo = PlainPad;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		9F1AC5752F3285E3003DA095 /* PlainPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PlainPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000002F3285E3003DA095 /* PlainTextDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlainTextDocumentTests.swift; sourceTree = "<group>"; };
+		A10000032F3285E3003DA095 /* AppearanceSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsTests.swift; sourceTree = "<group>"; };
+		A10000052F3285E3003DA095 /* PlainTextViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlainTextViewTests.swift; sourceTree = "<group>"; };
+		A10000062F3285E3003DA095 /* PlainPadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PlainPadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000102F3285E3003DA095 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -39,6 +61,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A100000F2F3285E3003DA095 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000112F3285E3003DA095 /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -46,6 +76,7 @@
 			isa = PBXGroup;
 			children = (
 				9F1AC5772F3285E3003DA095 /* PlainPad */,
+				A10000072F3285E3003DA095 /* PlainPadTests */,
 				9F1AC5762F3285E3003DA095 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,8 +85,19 @@
 			isa = PBXGroup;
 			children = (
 				9F1AC5752F3285E3003DA095 /* PlainPad.app */,
+				A10000062F3285E3003DA095 /* PlainPadTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000072F3285E3003DA095 /* PlainPadTests */ = {
+			isa = PBXGroup;
+			children = (
+				A10000032F3285E3003DA095 /* AppearanceSettingsTests.swift */,
+				A10000002F3285E3003DA095 /* PlainTextDocumentTests.swift */,
+				A10000052F3285E3003DA095 /* PlainTextViewTests.swift */,
+			);
+			path = PlainPadTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -83,6 +125,26 @@
 			productReference = 9F1AC5752F3285E3003DA095 /* PlainPad.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A10000082F3285E3003DA095 /* PlainPadTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000152F3285E3003DA095 /* Build configuration list for PBXNativeTarget "PlainPadTests" */;
+			buildPhases = (
+				A100000E2F3285E3003DA095 /* Sources */,
+				A100000F2F3285E3003DA095 /* Frameworks */,
+				A10000122F3285E3003DA095 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A10000182F3285E3003DA095 /* PBXTargetDependency */,
+			);
+			name = PlainPadTests;
+			packageProductDependencies = (
+			);
+			productName = PlainPadTests;
+			productReference = A10000062F3285E3003DA095 /* PlainPadTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -95,6 +157,10 @@
 				TargetAttributes = {
 					9F1AC5742F3285E3003DA095 = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					A10000082F3285E3003DA095 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = 9F1AC5742F3285E3003DA095;
 					};
 				};
 			};
@@ -113,12 +179,20 @@
 			projectRoot = "";
 			targets = (
 				9F1AC5742F3285E3003DA095 /* PlainPad */,
+				A10000082F3285E3003DA095 /* PlainPadTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		9F1AC5732F3285E3003DA095 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000122F3285E3003DA095 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -135,7 +209,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A100000E2F3285E3003DA095 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000022F3285E3003DA095 /* AppearanceSettingsTests.swift in Sources */,
+				A10000012F3285E3003DA095 /* PlainTextDocumentTests.swift in Sources */,
+				A10000042F3285E3003DA095 /* PlainTextViewTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A10000182F3285E3003DA095 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9F1AC5742F3285E3003DA095 /* PlainPad */;
+			targetProxy = A10000162F3285E3003DA095 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		9F1AC5832F3285E3003DA095 /* Debug */ = {
@@ -342,6 +434,54 @@
 			};
 			name = Release;
 		};
+		A10000132F3285E3003DA095 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leaton79.PlainPadTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PlainPad.app/Contents/MacOS/PlainPad";
+				TEST_TARGET_NAME = PlainPad;
+			};
+			name = Debug;
+		};
+		A10000142F3285E3003DA095 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leaton79.PlainPadTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PlainPad.app/Contents/MacOS/PlainPad";
+				TEST_TARGET_NAME = PlainPad;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -359,6 +499,15 @@
 			buildConfigurations = (
 				9F1AC5832F3285E3003DA095 /* Debug */,
 				9F1AC5842F3285E3003DA095 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000152F3285E3003DA095 /* Build configuration list for PBXNativeTarget "PlainPadTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000132F3285E3003DA095 /* Debug */,
+				A10000142F3285E3003DA095 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

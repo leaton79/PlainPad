@@ -72,20 +72,25 @@ enum Theme: String, CaseIterable, Identifiable {
             return NSColor(calibratedRed: 0.85, green: 0.75, blue: 0.6, alpha: 1.0)
         }
     }
-    
-    // MARK: - SwiftUI Color Conversions
-    
+
+    var headerBackgroundColor: NSColor {
+        switch self {
+        case .light:
+            return NSColor(calibratedWhite: 0.92, alpha: 1.0)
+        case .dark:
+            return NSColor(calibratedWhite: 0.15, alpha: 1.0)
+        case .highContrast:
+            return NSColor(calibratedWhite: 0.08, alpha: 1.0)
+        case .sepia:
+            return NSColor(calibratedRed: 0.91, green: 0.88, blue: 0.82, alpha: 1.0)
+        }
+    }
+
     var backgroundColorSwiftUI: Color {
         Color(nsColor: backgroundColor)
     }
-    
-    var textColorSwiftUI: Color {
-        Color(nsColor: textColor)
+
+    var headerBackgroundColorSwiftUI: Color {
+        Color(nsColor: headerBackgroundColor)
     }
-}
-
-// MARK: - RawRepresentable Conformance for @AppStorage
-
-extension Theme: RawRepresentable {
-    // Already conforms via String raw value
 }

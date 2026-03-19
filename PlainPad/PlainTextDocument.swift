@@ -18,22 +18,13 @@ struct PlainTextDocument: FileDocument {
         guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        
-        // Attempt UTF-8 first, then fall back to other encodings
-        if let string = String(data: data, encoding: .utf8) {
-            self.text = Self.normalizeLineEndings(string)
-        } else if let string = String(data: data, encoding: .isoLatin1) {
-            self.text = Self.normalizeLineEndings(string)
-        } else if let string = String(data: data, encoding: .windowsCP1252) {
-            self.text = Self.normalizeLineEndings(string)
-        } else {
-            throw CocoaError(.fileReadInapplicableStringEncoding)
-        }
+
+        self.text = try Self.decodeText(from: data)
     }
     
     // Write to file
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = text.data(using: .utf8) ?? Data()
+        let data = serializedData()
         return FileWrapper(regularFileWithContents: data)
     }
     
@@ -41,7 +32,26 @@ struct PlainTextDocument: FileDocument {
     
     /// Converts all line endings to Unix-style \n
     /// Handles: \r\n (Windows), \r (old Mac), \n (Unix)
-    private static func normalizeLineEndings(_ string: String) -> String {
+    static func decodeText(from data: Data) throws -> String {
+        // Attempt UTF-8 first, then fall back to other encodings
+        if let string = String(data: data, encoding: .utf8) {
+            return normalizeLineEndings(string)
+        }
+        if let string = String(data: data, encoding: .isoLatin1) {
+            return normalizeLineEndings(string)
+        }
+        if let string = String(data: data, encoding: .windowsCP1252) {
+            return normalizeLineEndings(string)
+        }
+
+        throw CocoaError(.fileReadInapplicableStringEncoding)
+    }
+
+    func serializedData() -> Data {
+        text.data(using: .utf8) ?? Data()
+    }
+
+    static func normalizeLineEndings(_ string: String) -> String {
         var result = string
         // Replace Windows CRLF first (order matters)
         result = result.replacingOccurrences(of: "\r\n", with: "\n")
