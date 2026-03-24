@@ -12,12 +12,9 @@ PlainPad is designed as a **clean paste buffer**: a place to strip formatting wh
 - **Paste strips formatting** — Default paste behavior removes all styling automatically
 - **Tab key inserts tabs** — Press Tab to insert a tab character, not change focus
 - **Multi-document tabs** — Standard macOS tabbed window support
-- **Visibility controls** (all via Format menu + keyboard shortcuts):
+- **Focused formatting controls** (via the Format menu):
   - Font size
   - Line spacing (leading)
-  - Character spacing (tracking)
-  - Edge padding (margins)
-  - Zoom (scales rendered view, distinct from font size)
   - Themes: Light, Dark, High Contrast, Sepia
 - **Standard document behavior** — New, Open, Save, Save As, recent files, autosave
 

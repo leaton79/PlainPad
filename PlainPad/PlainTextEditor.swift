@@ -4,8 +4,12 @@ import AppKit
 /// SwiftUI wrapper for PlainTextView (NSTextView subclass)
 /// Bridges AppKit text editing into SwiftUI with full appearance control
 struct PlainTextEditor: NSViewRepresentable {
+    private enum Layout {
+        static let verticalInset: CGFloat = 24
+        static let horizontalInset: CGFloat = 28
+    }
+
     @Binding var text: String
-    let documentURL: URL?
     @EnvironmentObject var appearanceSettings: AppearanceSettings
     
     func makeNSView(context: Context) -> NSScrollView {
@@ -66,9 +70,6 @@ struct PlainTextEditor: NSViewRepresentable {
         // Store current settings for comparison
         context.coordinator.lastAppearanceSnapshot = appearanceSettings.snapshot
         
-        // Check for Roboto font on first launch
-        FontManager.showInstallPromptIfNeeded()
-        
         return scrollView
     }
     
@@ -106,10 +107,6 @@ struct PlainTextEditor: NSViewRepresentable {
         let theme = snapshot.theme
         let fontSize = CGFloat(snapshot.fontSize)
         let lineHeight = snapshot.lineHeightMultiplier
-        let charSpacing = snapshot.characterSpacing
-        let padding = CGFloat(snapshot.edgePadding)
-        let zoom = CGFloat(snapshot.zoomLevel)
-        let effectiveFontSize = fontSize * zoom
 
         textView.backgroundColor = theme.backgroundColor
         scrollView.backgroundColor = theme.backgroundColor
@@ -118,15 +115,17 @@ struct PlainTextEditor: NSViewRepresentable {
             .backgroundColor: theme.selectionColor,
             .foregroundColor: theme.textColor
         ]
-        textView.textContainerInset = NSSize(width: padding, height: padding)
+        textView.textContainerInset = NSSize(
+            width: Layout.horizontalInset,
+            height: Layout.verticalInset
+        )
 
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineHeightMultiple = CGFloat(lineHeight)
-        let font = FontManager.font(ofSize: effectiveFontSize)
+        let font = FontManager.font(ofSize: fontSize)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: theme.textColor,
-            .kern: CGFloat(charSpacing) * zoom,
             .paragraphStyle: paragraphStyle
         ]
         textView.typingAttributes = attributes
@@ -138,8 +137,7 @@ struct PlainTextEditor: NSViewRepresentable {
             textView.textStorage?.setAttributes(attributes, range: fullRange)
         }
 
-        scrollView.magnification = 1.0
-        scrollView.allowsMagnification = false
+        textView.defaultParagraphStyle = paragraphStyle
     }
 
     func makeCoordinator() -> Coordinator {

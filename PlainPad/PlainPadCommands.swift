@@ -37,32 +37,15 @@ struct PlainPadFormatCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Format") {
-            Button("Zoom In") {
-                appearanceSettings.zoomIn()
-            }
-            .keyboardShortcut("+", modifiers: .command)
-
-            Button("Zoom Out") {
-                appearanceSettings.zoomOut()
-            }
-            .keyboardShortcut("-", modifiers: .command)
-
-            Button("Reset Zoom") {
-                appearanceSettings.resetZoom()
-            }
-            .keyboardShortcut("0", modifiers: .command)
-
-            Divider()
-
             Button("Increase Font Size") {
                 appearanceSettings.increaseFontSize()
             }
-            .keyboardShortcut("+", modifiers: [.command, .shift])
+            .keyboardShortcut("+", modifiers: .command)
 
             Button("Decrease Font Size") {
                 appearanceSettings.decreaseFontSize()
             }
-            .keyboardShortcut("-", modifiers: [.command, .shift])
+            .keyboardShortcut("-", modifiers: .command)
 
             Divider()
 
@@ -70,22 +53,6 @@ struct PlainPadFormatCommands: Commands {
                 ForEach(EditorFormatPresets.lineSpacing) { option in
                     Button(option.label) {
                         appearanceSettings.lineHeightMultiplier = option.value
-                    }
-                }
-            }
-
-            Menu("Character Spacing") {
-                ForEach(EditorFormatPresets.characterSpacing) { option in
-                    Button(option.label) {
-                        appearanceSettings.characterSpacing = option.value
-                    }
-                }
-            }
-
-            Menu("Edge Padding") {
-                ForEach(EditorFormatPresets.edgePadding) { option in
-                    Button(option.label) {
-                        appearanceSettings.edgePadding = option.value
                     }
                 }
             }
