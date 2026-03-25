@@ -62,7 +62,7 @@ struct PlainTextEditor: NSViewRepresentable {
         
         // Configure scroll view
         scrollView.documentView = textView
-        context.coordinator.updateTextLayout(for: textView, in: scrollView)
+        context.coordinator.updateTextLayout(for: textView, in: scrollView, force: true)
         
         // Apply initial appearance
         applyAppearance(to: textView, scrollView: scrollView)
@@ -84,6 +84,10 @@ struct PlainTextEditor: NSViewRepresentable {
             return
         }
 
+        // Passive SwiftUI refreshes can happen while the editor is idle
+        // (for example due to document/autosave state updates). Re-running
+        // text layout in those cases can perturb the clip view origin even
+        // though neither the caret nor the viewport geometry changed.
         context.coordinator.updateTextLayout(for: textView, in: scrollView)
         
         // Only update text if it changed externally (e.g., file open)
@@ -97,6 +101,7 @@ struct PlainTextEditor: NSViewRepresentable {
         let currentSnapshot = appearanceSettings.snapshot
         if currentSnapshot != context.coordinator.lastAppearanceSnapshot {
             applyAppearance(to: textView, scrollView: scrollView)
+            context.coordinator.updateTextLayout(for: textView, in: scrollView, force: true)
             context.coordinator.keepSelectionVisible(in: textView)
             context.coordinator.lastAppearanceSnapshot = currentSnapshot
         }
@@ -148,6 +153,7 @@ struct PlainTextEditor: NSViewRepresentable {
         var parent: PlainTextEditor
         var isUpdating = false
         var lastAppearanceSnapshot: AppearanceSettings.Snapshot?
+        private var lastLaidOutContentSize: NSSize?
         private var observers: [NSObjectProtocol] = []
         
         init(_ parent: PlainTextEditor) {
@@ -174,14 +180,23 @@ struct PlainTextEditor: NSViewRepresentable {
                         let textView,
                         let scrollView
                     else { return }
-                    self.updateTextLayout(for: textView, in: scrollView)
+                    self.updateTextLayout(for: textView, in: scrollView, force: true)
                     self.keepSelectionVisible(in: textView)
                 }
             )
         }
 
-        func updateTextLayout(for textView: NSTextView, in scrollView: NSScrollView) {
+        @discardableResult
+        func updateTextLayout(
+            for textView: NSTextView,
+            in scrollView: NSScrollView,
+            force: Bool = false
+        ) -> Bool {
             let contentSize = scrollView.contentSize
+            if !force, lastLaidOutContentSize == contentSize {
+                return false
+            }
+            lastLaidOutContentSize = contentSize
             let targetWidth = contentSize.width
 
             if textView.frame.width != targetWidth {
@@ -200,6 +215,7 @@ struct PlainTextEditor: NSViewRepresentable {
             if let textContainer = textView.textContainer {
                 textView.layoutManager?.ensureLayout(for: textContainer)
             }
+            return true
         }
 
         func keepSelectionVisible(in textView: NSTextView) {
