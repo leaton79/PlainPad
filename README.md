@@ -1,5 +1,7 @@
 # PlainPad
 
+**Notice:** This project was created with the assistance of GenAI tools. It should be carefully reviewed and independently inspected before being used in any production, security-sensitive, or otherwise critical context.
+
 A minimal, fast, plain-text notepad for macOS—inspired by Windows Notepad but native to the Mac.
 
 ## Purpose
